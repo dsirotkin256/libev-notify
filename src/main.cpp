@@ -1,3 +1,18 @@
+#define EV_COMPAT3 1
+#define EV_FEATURES 1
+#define EV_MULTIPLICITY 1
+#define EV_USE_MONOTONIC 1
+#define EV_USE_FLOOR 1
+#define EV_USE_EVENTFD 1
+#define EV_USE_TIMERFD 1
+#define EV_USE_EPOLL 1
+#define EV_USE_INOTIFY 1
+#define EV_NO_THREADS 1
+#define EV_ASYNC_ENABLE 1
+
+#define EV_MINPRI -2
+#define EV_MAXPRI 2
+
 #include <ev++.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -56,10 +71,7 @@ int main() {
   // Open stdin fd in a non-blocking mode
   ::fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
-  ev::dynamic_loop loop(EVBACKEND_IOURING);
-
-  loop.set_io_collect_interval(0.000001);
-  loop.set_timeout_collect_interval(0.1);
+  ev::dynamic_loop loop(EVBACKEND_EPOLL);
 
   stdin_handler stdin_handl(loop);
 
@@ -68,14 +80,13 @@ int main() {
   // Register callback
   stdin_watch.set(&stdin_handl);
 
-  // Wait until stdin becomes readable
-  stdin_watch.set(STDIN_FILENO, ev::WRITE);
-
   // Add watcher to the loop
   stdin_watch.set(loop);
 
+  // Wait until stdin becomes readable
   // Start watching fd and events -> invoke callback
-  stdin_watch.start();
+  stdin_watch.start(STDIN_FILENO, EV_WRITE);
+
 
   struct periodic_hi {
     void operator()(ev::timer &, int revents) { printf("Hi!\n"); }
@@ -83,9 +94,8 @@ int main() {
 
   ev::timer dummy_greeter;
   dummy_greeter.set(&hi);
-  dummy_greeter.set(0., 5.);
   dummy_greeter.set(loop);
-  dummy_greeter.start();
+  dummy_greeter.start(0.,5.);
 
   loop.run();
 
