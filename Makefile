@@ -15,7 +15,7 @@ gen_git_libev: sync_libev install_libev
 
 build: clean
 	mkdir -p ${BUILD_DIR}
-	$(CXX) -O3 -std=c++17 src/main.cpp -l:libev.a -o build/test
+	$(CXX) -O3 -std=c++17 src/main.cpp -l:libev.a -l:librt.a -o build/test
 
 clean:
 	rm -rf $(BUILD_DIR)

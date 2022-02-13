@@ -3056,7 +3056,12 @@ evtimerfd_init (EV_P)
 {
   if (!ev_is_active (&timerfd_w))
     {
+
+#if EV_USE_MONOTONIC
+      timerfd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+#else
       timerfd = timerfd_create (CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+#endif
 
       if (timerfd >= 0)
         {
