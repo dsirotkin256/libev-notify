@@ -9,6 +9,7 @@
 #define EV_USE_INOTIFY 1
 #define EV_NO_THREADS 1
 #define EV_ASYNC_ENABLE 1
+#define EV_STAT_ENABLE 1
 
 #define EV_MINPRI -2
 #define EV_MAXPRI 2
@@ -65,7 +66,6 @@ struct stdin_handler {
   }
 };
 
-
 int main() {
 
   // Open stdin fd in a non-blocking mode
@@ -87,7 +87,6 @@ int main() {
   // Start watching fd and events -> invoke callback
   stdin_watch.start(STDIN_FILENO, EV_WRITE);
 
-
   struct periodic_hi {
     void operator()(ev::timer &, int revents) { printf("Hi!\n"); }
   } hi;
@@ -95,7 +94,34 @@ int main() {
   ev::timer dummy_greeter;
   dummy_greeter.set(&hi);
   dummy_greeter.set(loop);
-  dummy_greeter.start(0.,5.);
+  dummy_greeter.start(0., 500.);
+
+  struct change_handler {
+    void operator()(ev::stat &stat, int revents) {
+      if (stat.attr.st_nlink) {
+        printf("Path: %s", stat.path);
+        printf("Total size in bytes: %ld\n", (long)stat.attr.st_size);
+        printf("Time of last access: %ld\n", (long)stat.attr.st_atime);
+        printf("Time of last modification: %ld\n", (long)stat.attr.st_mtime);
+        printf("ID of device containing file: %ld\n", (long)stat.attr.st_dev);
+        printf("Inode number: %ld\n", (long)stat.attr.st_ino);
+        printf("File type and mode: %ld\n", (long)stat.attr.st_mode);
+        printf("Number of hard links: %ld\n", (long)stat.attr.st_nlink);
+        printf("User ID: %ld\n", (long)stat.attr.st_uid);
+        printf("Group ID: %ld\n", (long)stat.attr.st_gid);
+        printf("Device ID: %ld\n", (long)stat.attr.st_rdev);
+        printf("Time of last status change: %ld\n", (long)stat.attr.st_ctime);
+      } else {
+        /* you shalt not abuse printf for puts */
+        puts("File does not exit!\n");
+      }
+    }
+  } chg_hdr;
+
+  ev::stat dir_watch;
+  dir_watch.set(&chg_hdr);
+  dir_watch.set(loop);
+  dir_watch.start("/mnt/extra/libev-notify");
 
   loop.run();
 
