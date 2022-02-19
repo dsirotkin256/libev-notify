@@ -10,7 +10,7 @@ apply_libev_patch:
 	ls -d libs/patches/libev/* | xargs -I{} sh -c "patch -s -p0 <{}"
 
 install_libev: sync_libev apply_libev_patch
-	cd libs/libev && sh ./autogen.sh && ./configure && make -j$(nproc) && make install
+	cd libs/libev && sh ./autogen.sh && ./configure && make -j$(nproc) && make install && make distclean
 
 build: clean
 	mkdir -p ${BUILD_DIR}
@@ -18,7 +18,4 @@ build: clean
 
 clean:
 	rm -rf $(BUILD_DIR)
-
-clean_libev:
-	cd libs/libev && make distclean
 
