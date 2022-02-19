@@ -1,0 +1,15 @@
+--- libs/libev/ev.c	2021-05-17 23:41:10.000000000 +0800
++++ ev.c.patch	2022-02-14 07:05:07.762832535 +0800
+@@ -3056,7 +3056,12 @@
+ {
+   if (!ev_is_active (&timerfd_w))
+     {
++
++#if EV_USE_MONOTONIC
++      timerfd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
++#else
+       timerfd = timerfd_create (CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
++#endif
+ 
+       if (timerfd >= 0)
+         {

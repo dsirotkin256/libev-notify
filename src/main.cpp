@@ -19,8 +19,9 @@
 #include <unistd.h>
 
 struct stdin_handler {
-  ev::timer tm_watch;
+  ev::timer _tm_watch;
   ev::loop_ref _loop;
+  double _timeout;
   const char *_1 = "IS WRITE";
   const char *_2 = "BUFFER";
   const char *exit_cmd = "EXIT\n";
@@ -28,9 +29,9 @@ struct stdin_handler {
   char msg[512];
   const char *reminder = "Last valid input was entered 5 sec ago.\n\0";
 
-  stdin_handler(ev::loop_ref loop) : _loop{loop} {
-    tm_watch.set(loop);
-    tm_watch.set(this);
+  stdin_handler(ev::loop_ref loop, double timeout = 5.) : _loop{loop}, _timeout(timeout) {
+    _tm_watch.set(loop);
+    _tm_watch.set(this);
   }
 
   void operator()(ev::timer &t, int revents) {
@@ -52,7 +53,7 @@ struct stdin_handler {
     }
 
     if (::strcmp(buff, "\n")) { /* Ignore new line input */
-      tm_watch.stop();
+      _tm_watch.stop();
       char *token = ::strtok(buff, "\n");
       do {
         ::memset(msg, '\0', sizeof(msg));
@@ -61,7 +62,7 @@ struct stdin_handler {
         ::fprintf(stdout, msg, sizeof(msg));
         ::fflush(stdout);
       } while ((token = ::strtok(NULL, "\n")));
-      tm_watch.start(5., 0.);
+      _tm_watch.start(_timeout);
     }
   }
 };

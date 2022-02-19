@@ -1,0 +1,16 @@
+--- libs/libev/ev++.h	2020-01-22 22:09:07.000000000 +0800
++++ ev++.h	2022-02-19 19:07:28.665011924 +0800
+@@ -336,11 +336,12 @@
+     {
+       ev_feed_fd_event (EV_AX_ fd, revents);
+     }
+-
++#if EV_SIGNAL_ENABLE
+     void feed_signal_event (int signum) EV_NOEXCEPT
+     {
+       ev_feed_signal_event (EV_AX_ signum);
+     }
++#endif
+ 
+ #if EV_MULTIPLICITY
+     struct ev_loop* EV_AX;
