@@ -13,7 +13,7 @@ install_libev: sync_libev apply_libev_patch
 	cd libs/libev && sh ./autogen.sh && ./configure && make -j$(nproc) && make install && make distclean
 
 build: clean
-	mkdir -p ${BUILD_DIR}
+	mkdir -p ${BUILD_DIR}/bin
 	$(CXX) -O3 -std=c++17 src/main.cpp -l:libev.a -l:librt.a -o ${BUILD_DIR}/bin/test
 
 clean:
