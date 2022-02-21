@@ -14,7 +14,7 @@ install_libev: sync_libev apply_libev_patch
 
 build: clean
 	mkdir -p ${BUILD_DIR}/bin
-	$(CXX) -O3 -std=c++17 src/main.cpp -l:libev.a -l:librt.a -o ${BUILD_DIR}/bin/test
+	$(CXX) -O3 -std=c++17 src/main.cpp -l:libev.a -l:liburing.a -l:librt.a -o ${BUILD_DIR}/bin/test
 
 clean:
 	rm -rf $(BUILD_DIR)

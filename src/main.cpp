@@ -16,7 +16,13 @@
 
 #include <ev++.h>
 #include <fcntl.h>
+#include <liburing.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 
 struct stdin_handler {
   ev::timer _tm_watch;
@@ -29,7 +35,8 @@ struct stdin_handler {
   char msg[512];
   const char *reminder = "Last valid input was entered 5 sec ago.\n\0";
 
-  stdin_handler(ev::loop_ref loop, double timeout = 5.) : _loop{loop}, _timeout(timeout) {
+  stdin_handler(ev::loop_ref loop, double timeout = 5.)
+      : _loop{loop}, _timeout(timeout) {
     _tm_watch.set(loop);
     _tm_watch.set(this);
   }
@@ -67,12 +74,102 @@ struct stdin_handler {
   }
 };
 
-int main() {
+#define QUEUE_DEPTH 64
+#define BLK_SIZE 4096
 
+int main(int argc, char **argv) {
+
+  int i = 0, fd, ret, pending = 0, done = 0;
+  struct io_uring ring;
+  ret = io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
+  if (ret < 0) {
+    fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+    return ret;
+  }
+
+  fd = open(argv[1], O_RDONLY);
+  if (fd < 0) {
+      perror("open");
+      return fd;
+  }
+
+  struct io_uring_sqe *sqe;
+  struct io_uring_cqe *cqe;
+
+  struct iovec *iovecs;
+  struct stat sb;
+  ssize_t fsize = 0;
+  off_t offset = 0;
+  void *buf;
+
+  ret = fstat(fd, &sb);
+
+  if (ret < 0) {
+    perror("fstat");
+    return ret;
+  }
+
+  iovecs = static_cast<struct iovec*>(calloc(QUEUE_DEPTH, sizeof(struct iovec)));
+
+  for (i = 0; i < QUEUE_DEPTH; ++i) {
+    if (posix_memalign(&buf, BLK_SIZE, BLK_SIZE)) {
+      fprintf(stderr, "posix_memalign");
+      return 1;
+    }
+    iovecs[i].iov_base = buf;
+    iovecs[i].iov_len = BLK_SIZE;
+    fsize += BLK_SIZE;
+  }
+
+  i = 0;
+
+  do {
+    sqe = io_uring_get_sqe(&ring);
+    if (!sqe) break;
+    io_uring_prep_readv(sqe, fd, &iovecs[i], 1, offset);
+    offset += iovecs[i].iov_len;
+    ++i;
+    if (offset > sb.st_size) break;
+  } while (true);
+
+  ret = io_uring_submit(&ring);
+  if (ret < 0) {
+    fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
+    return ret;
+  } else if (ret != i) {
+    fprintf(stderr, "io_uring_submit submitted less: %d\n", ret);
+    return ret;
+  }
+
+  pending = ret;
+
+  for (i = 0; i < pending; ++i) {
+    ret = io_uring_wait_cqe(&ring, &cqe);
+    if (ret < 0) {
+      fprintf(stderr, "io_uring_wait_cqe: %s\n", strerror(-ret));
+      return ret;
+    }
+    done++;
+    ret = 0;
+    if (cqe->res != BLK_SIZE && cqe->res + fsize != sb.st_size) {
+      fprintf(stderr, "ret=%d wanted 4096\n", cqe->res);
+      ret = 1;
+    }
+    fsize += cqe->res;
+    io_uring_cqe_seen(&ring, cqe);
+    if (ret) break;
+  }
+
+  printf("submitted=%d completed=%d bytes=%lu\n", pending, done, (unsigned long) fsize);
+
+  close(fd);
+  io_uring_queue_exit(&ring);
+
+/*
   // Open stdin fd in a non-blocking mode
   ::fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
-  ev::dynamic_loop loop(EVBACKEND_EPOLL);
+  ev::dynamic_loop loop(EVBACKEND_IOURING);
 
   stdin_handler stdin_handl(loop);
 
@@ -113,7 +210,6 @@ int main() {
         printf("Device ID: %ld\n", (long)stat.attr.st_rdev);
         printf("Time of last status change: %ld\n", (long)stat.attr.st_ctime);
       } else {
-        /* you shalt not abuse printf for puts */
         puts("File does not exit!\n");
       }
     }
@@ -125,6 +221,7 @@ int main() {
   dir_watch.start("/mnt/extra/libev-notify");
 
   loop.run();
+  */
 
   return 0;
 }
